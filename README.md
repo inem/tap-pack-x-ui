@@ -42,3 +42,8 @@ presentation are separate site adapters. `primaryColumn` and `sidebarColumn` wer
 observed in the authenticated desktop page. X omits the latter on narrow viewports.
 X Article previews remain previews unless X exposes their article body in the post
 document. Build/check with TAP Pack SDK.
+
+## 0.7.1
+
+The pack now declares its focused layout, direct copy actions and Bookmark handoff
+as user-facing features for generic TAP projections such as the inspector.
