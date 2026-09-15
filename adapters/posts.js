@@ -1,6 +1,12 @@
-// Authenticated X desktop DOM, observed on a post and its action rows,
-// 2026-09-09. Identity comes from the post's own timestamp permalink.
-export const cards = 'article[data-testid="tweet"]';
+// Authenticated X desktop DOM. The 2026-09-09 layout keyed posts on
+// article[data-testid="tweet"] with a role="group" action row whose buttons
+// carried aria-label="Share post" and data-testid bookmarks. In 2026-09 X
+// shipped a new frontend where the tweet <article> carries no data-testid and
+// the action bar has no role="group"; buttons expose bare aria-labels
+// ("Share", "Bookmark"). Both are supported: a card is any <article> that owns
+// a canonical status permalink, and the action bar is derived from the Share
+// button itself rather than a role="group" container.
+export const cards = 'article';
 
 export function canonical_post_url(href, base='https://x.com/') {
   if (typeof href !== 'string' || !href) return null;
@@ -13,33 +19,59 @@ export function canonical_post_url(href, base='https://x.com/') {
   } catch { return null; }
 }
 
+// A node belongs to `card` when its nearest enclosing <article> is that card.
+// Quoted posts are their own nested <article> and are scoped out naturally.
 function owned(card, node) { return node?.closest?.(cards) === card; }
 
-function row_slot(row, node) {
-  let slot = node;
-  while (slot?.parentElement && slot.parentElement !== row) slot = slot.parentElement;
-  return slot?.parentElement === row ? slot : null;
+const SHARE_LABELS = ['Share', 'Share post'];
+const BOOKMARK_TESTIDS = ['bookmark', 'removeBookmark'];
+const BOOKMARK_LABELS = ['Bookmark', 'Bookmarked', 'Remove post from Bookmarks'];
+
+function is_share(card, button) {
+  return owned(card, button) && SHARE_LABELS.includes(button.getAttribute('aria-label'));
+}
+
+export function is_bookmark(card, button) {
+  if (!owned(card, button)) return false;
+  if (BOOKMARK_TESTIDS.includes(button.getAttribute('data-testid'))) return true;
+  return BOOKMARK_LABELS.includes(button.getAttribute('aria-label'));
+}
+
+// The flex cell holding `button` inside its action bar: walk up until a sibling
+// child also carries an action button — that parent is the bar and the current
+// node is its cell. Works for the old role="group" row and the new flex bar.
+function action_cell(card, button) {
+  let cell = button;
+  while (cell && cell.parentElement && cell.parentElement !== card) {
+    const parent = cell.parentElement;
+    const sibling_action = [...parent.children]
+      .some(child => child !== cell && child.querySelector?.('button'));
+    if (sibling_action) return cell;
+    cell = parent;
+  }
+  return cell;
 }
 
 export function select_post(card, base='https://x.com/', placement='first') {
   if (!card?.isConnected || !card.matches?.(cards)) return null;
-  const timestamp = [...card.querySelectorAll('a[href*="/status/"]')]
-    .find(link => owned(card, link) && link.querySelector?.('time'));
-  const url = canonical_post_url(timestamp?.getAttribute?.('href'), base);
+  // The old layout marked the permalink with a <time> child; the new frontend
+  // dropped <time> and renders the timestamp as text. The post's own permalink
+  // and its Views link resolve to the same canonical URL, so take the first
+  // owned status link that yields one — no <time> dependency.
+  const url = [...card.querySelectorAll('a[href*="/status/"]')]
+    .filter(link => owned(card, link))
+    .map(link => canonical_post_url(link.getAttribute?.('href'), base))
+    .find(Boolean) || null;
   if (!url) return null;
-  const rows = [...card.querySelectorAll('[role="group"]')].filter(row => owned(card, row));
+  // One Share button per action bar; a full Article has bars above and below.
+  const shares = [...card.querySelectorAll('button')].filter(button => is_share(card, button));
   const bindings = [];
-  for (const row of rows) {
-    const share = [...row.querySelectorAll('button')]
-      .find(button => owned(card, button) && button.getAttribute('aria-label') === 'Share post');
-    const anchor = row_slot(row, share);
-    if (!anchor) continue;
-    const bookmark = [...row.querySelectorAll('button')]
-      .find(button => owned(card, button) &&
-        ['bookmark','removeBookmark'].includes(button.getAttribute('data-testid')));
-    // Feed and article layouts wrap Share differently. Mount at the row level,
-    // borrowing the ordinary Bookmark slot when available for one-line geometry.
-    bindings.push({url, anchor, peer:share, slot:row_slot(row, bookmark) || anchor});
+  for (const share of shares) {
+    const anchor = action_cell(card, share);
+    if (!anchor?.parentElement) continue;
+    const bookmark = [...card.querySelectorAll('button')].find(button => is_bookmark(card, button));
+    // Borrow the Bookmark cell geometry when present for one-line placement.
+    bindings.push({url, anchor, peer:share, slot:bookmark ? action_cell(card, bookmark) : anchor});
   }
   if (placement === 'last-multiple') return bindings.length > 1 ? bindings[bindings.length - 1] : null;
   return bindings[0] || null;

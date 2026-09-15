@@ -4,8 +4,9 @@ function owned(card, node) { return node?.closest?.(cards) === card; }
 
 export async function wait_for_bookmark(card, pause=delay, attempts=25) {
   for (let index=0; index<attempts; index++) {
-    const saved = [...card.querySelectorAll('[data-testid="removeBookmark"]')]
-      .some(button => owned(card, button));
+    const saved = [...card.querySelectorAll('button')].some(button => owned(card, button) &&
+      (button.getAttribute('data-testid') === 'removeBookmark' ||
+        ['Bookmarked','Remove post from Bookmarks'].includes(button.getAttribute('aria-label'))));
     if (saved) return true;
     await pause(120);
   }
@@ -24,9 +25,11 @@ export async function persist_bookmark(bridge, link, markdown) {
 export function save_native_bookmarks(document, bridge, project, wait=wait_for_bookmark) {
   let disposed = false;
   async function clicked(event) {
-    const button = event.target?.closest?.('button[data-testid="bookmark"]');
+    const button = event.target?.closest?.('button');
+    const adds_bookmark = button?.getAttribute?.('data-testid') === 'bookmark'
+      || button?.getAttribute?.('aria-label') === 'Bookmark';
     const card = button?.closest?.(cards);
-    if (!card || !owned(card, button)) return;
+    if (!card || !adds_bookmark || !owned(card, button)) return;
     const binding = select_post(card, document.baseURI);
     if (!binding) return;
     try {
