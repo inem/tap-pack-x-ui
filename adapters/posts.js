@@ -40,10 +40,16 @@ export function is_bookmark(card, button) {
 // the old <time> marker is gone on the new layout, so take the first owned
 // status link that yields a canonical URL.
 function post_url(card, base) {
-  return [...card.querySelectorAll('a[href*="/status/"]')]
+  const links = [...card.querySelectorAll('a[href*="/status/"]')];
+  const owned_url = links
     .filter(link => owned(card, link))
     .map(link => canonical_post_url(link.getAttribute?.('href'), base))
-    .find(Boolean) || null;
+    .find(Boolean);
+  if (owned_url) return owned_url;
+  // A long-form X Article nests its permalink inside an inner <article>, so the
+  // outer wrapper that carries the top action bar owns no canonical link. Fall
+  // back to the first canonical descendant so that bar still resolves a URL.
+  return links.map(link => canonical_post_url(link.getAttribute?.('href'), base)).find(Boolean) || null;
 }
 
 // Original row logic: the direct child of the role="group" bar that holds `node`.
