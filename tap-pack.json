@@ -1,5 +1,5 @@
 {
-  "id":"x.ui", "version":"0.7.7",
+  "id":"x.ui", "version":"0.7.8",
   "intent":"Keep X focused, copy any post link or Markdown, and locally retain posts the user bookmarks.",
   "license":"MIT", "page":"page.js", "files":["LICENSE"],
   "features":[

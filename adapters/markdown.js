@@ -1,8 +1,14 @@
 import {cards} from './posts.js';
 
 function own_text(card) {
-  return [...card.querySelectorAll('[data-testid="tweetText"]')]
-    .find(text => text.closest(cards) === card) || null;
+  const by_testid = [...card.querySelectorAll('[data-testid="tweetText"]')]
+    .find(node => node.closest(cards) === card);
+  if (by_testid) return by_testid;
+  // The new frontend dropped the testid; the tweet body is the largest owned
+  // dir="auto" block (shorter ones are the author name or an article title).
+  return [...card.querySelectorAll('[dir="auto"]')]
+    .filter(node => node.closest(cards) === card && (node.innerText || '').trim())
+    .sort((a, b) => (b.innerText || '').length - (a.innerText || '').length)[0] || null;
 }
 
 function escape_label(text) { return text.replace(/([\\\[\]])/g, '\\$1'); }
