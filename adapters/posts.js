@@ -46,10 +46,12 @@ function post_url(card, base) {
     .map(link => canonical_post_url(link.getAttribute?.('href'), base))
     .find(Boolean);
   if (owned_url) return owned_url;
-  // A long-form X Article nests its permalink inside an inner <article>, so the
-  // outer wrapper that carries the top action bar owns no canonical link. Fall
-  // back to the first canonical descendant so that bar still resolves a URL.
-  return links.map(link => canonical_post_url(link.getAttribute?.('href'), base)).find(Boolean) || null;
+  // A long-form X Article nests its permalink inside one <article> while the
+  // other (which carries the top action bar) has no status link at all. Fall
+  // back to any canonical descendant link, then to the page's own canonical URL
+  // on a status page — both bars are the same focal post.
+  const descendant_url = links.map(link => canonical_post_url(link.getAttribute?.('href'), base)).find(Boolean);
+  return descendant_url || canonical_post_url(base, base);
 }
 
 // Original row logic: the direct child of the role="group" bar that holds `node`.
